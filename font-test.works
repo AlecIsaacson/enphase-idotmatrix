@@ -1,0 +1,15 @@
+from PIL import Image, ImageDraw, ImageFont
+
+fonts = ['../PixelOperator.ttf','../PixelOperatorSC.ttf','../PixelOperatorMono.ttf','../PixelOperatorMono8.ttf','../PixelOperator8.ttf']
+fonts = ['../10x20.pil','../ter-x20b-cp1250.pil','../ter-x20b-iso8859-1.pil','../ter-x20b-iso8859-2.pil']
+fonts = ['../matrix-fonts/6-series/MatrixChunky6.ttf','../matrix-fonts/6-series/MatrixChunky6X.ttf','../matrix-fonts/6-series/MatrixLight6.ttf','../matrix-fonts/6-series/MatrixLight6X.ttf']
+
+for fontName in fonts:
+   print(fontName)
+   image = Image.new("RGB", (64, 64), (0,0,0))
+   draw = ImageDraw.Draw(image)
+   font = ImageFont.truetype(fontName, size=6)
+#   font = ImageFont.load(fontName)
+   draw.fontmode='1'
+   draw.text((1,1), '1234567890', font=font)
+   image.save('./' + fontName + '.png')
