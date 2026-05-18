@@ -1,16 +1,21 @@
-#1/usr/bin/python3
+#!/home/alec/enphase-idotmatrix/venv/bin/python3
 
 import requests
 import json
 import time
 import urllib3
 from PIL import Image, ImageDraw, ImageFont
-import pandas as pd
 from dotenv import dotenv_values
+import logging
+import datetime
+
+logging.Formatter.converter = time.gmtime
+logging.basicConfig(filename='/home/alec/enphase-idotmatrix/enphase-idotmatrix.log', level=logging.INFO, format='%(asctime)s.%(msecs)03dZ %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logger = logging.getLogger(__name__)
+
+logger.info('Starting poller')
 
 secrets = dotenv_values('/home/alec/enphase-idotmatrix/.env')
-
-fontName = '../matrix-fonts/6-series/MatrixChunky6.bdf'
 
 GREEN         = (70, 210, 70)
 YELLOW        = (240, 190, 0)
@@ -19,22 +24,22 @@ ORANGE        = (255, 140, 0)
 WHITE         = (255, 255, 255)
 GREY          = (64, 64, 64)
 
-
 def getGraphData(queryEndpoint, metric, startTime, endTime):
+   logger.debug('In getGraphData')
    try:
       headers = {'Authorization' : 'Bearer ' + secrets['grafanaApiKey'], 'Accept' : 'application/json'}
       params = {'query' : metric, 'start' : startTime, 'end' : endTime, 'step' : '900'} 
       response = requests.get(secrets['baseURL'] + queryEndpoint, headers=headers, params=params)
       return(response.json())
-   
    except Exception as err:
-      print(str(err))
+      logger.info(str(err))
 
-def generateGraph(graphProdData, graphConsumeData):
+def generateGraph(graphProdData, graphConsumeData, graphDailyProdData):
+    logger.debug('In generateGraph')
     X=0
     image = Image.new("RGB", (64,64), (0,0,0))
     draw = ImageDraw.Draw(image)
-    font = ImageFont.truetype('./fonts/MatrixChunky6.bdf', size=6)
+    font = ImageFont.truetype('/home/alec/enphase-idotmatrix/fonts/MatrixChunky6.bdf', size=6)
     draw.fontmode='l'
 
     # Dividing axis
@@ -42,44 +47,53 @@ def generateGraph(graphProdData, graphConsumeData):
 
     for prodWatts in graphProdData:
       pixels = int(float(prodWatts[1])) // 240
-      # print(str(int(float(prodWatts[1]))) + ' ' + str(pixels) + ' ' + str(X))
+      logger.debug(str(int(float(prodWatts[1]))) + ' ' + str(pixels) + ' ' + str(X))
       if pixels > 0:
-         draw.line([(X,37),(X,37 - pixels)], fill=GREEN, width=1)
+         logger.debug('Line: ' + str(X) + ',37 -> ' + str(X) + ',' + str(37 - pixels))
+         draw.line([(X,37),(X,37 - (pixels - 1))], fill=GREEN, width=1)
       X+=1
 
     X=0
     for consumeWatts in graphConsumeData:
       pixels = int(float(consumeWatts[1])) // 240
-      # print(str(int(float(consumeWatts[1]))) + ' ' + str(pixels) + ' ' + str(X))
+      logger.debug(str(int(float(consumeWatts[1]))) + ' ' + str(pixels) + ' ' + str(X))
       if pixels > 0:
-         draw.line([(X,39),(X,39 + pixels)], fill=RED, width=1)
+         logger.debug('Line: ' + str(X) + ',39 -> ' + str(X) + ',' +str(39 + pixels))
+         draw.line([(X,39),(X,39 + (pixels - 1))], fill=RED, width=1)
       X+=1
 
     currentProd = float(graphProdData[-1][1]) - float(graphConsumeData[-1][1])
-    # print(str(currentProd))
+    logger.debug(str(currentProd))
     if currentProd < 0:
       fillColor = RED
     else:
       fillColor = GREEN
     draw.text((1,1), str(int(currentProd)), font=font, fill=fillColor)
+    draw.text((32,1), str(round(float(graphDailyProdData), 2)), font=font, fill=GREEN, anchor='mt')
 
-    image.save('combined.png')
+    image.save('/tmp/combined.png')
 
 def main():
+   logger.info('In main')
    # End time is now.
-   # We can only show 64 bars. We want 15 minute resolution, so we have room for 15 hours 45 minutes worth of samples (0 - 63).
-   # Pandas is in here to do rounding easily, but then we have to convert back to Int
-   now = pd.Timestamp(time.time(), unit='s', tz='utc')
-   floorTime = now.floor(freq='15min')
-   # print(str(now) + ' ' + str(floorTime) + ' ' + str(floorTime.timestamp()))
-   endTime = floorTime.timestamp()
-   startTime = endTime - (60 * 945) 
-   # print(str(endTime) + ' ' + str(startTime))
+   # We can only show 64 bars. We want 15 minute resolution, so we have room for 16 hours worth of samples (0 - 63).
+   now = datetime.datetime.now(datetime.UTC)
+   roundedMinute = now.minute // 15 * 15
+   roundedTime = now.replace(minute=roundedMinute, second=0, microsecond=0)
+   logger.debug(str(now.timestamp()) + ' ' + str(roundedTime.timestamp()))
+   endTime = roundedTime.timestamp()
+   startTime = endTime - (60 * 960) 
+   logger.info('End: ' + str(endTime) + ' ' + 'Start: ' + ' ' + str(startTime))
+
    graphProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query_range', 'solar_prod_w_now_metric', startTime, endTime)
    graphConsumeResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query_range', 'solar_consume_w_now_metric', startTime, endTime)
-   # print(graphResponse) 
+   logger.debug('Graph prod response:' + ' ' + str(graphProdResponse)) 
+   logger.debug('Graph consume response:' + ' ' + str(graphConsumeResponse))
 
-   generateGraph(graphProdResponse['data']['result'][0]['values'], graphConsumeResponse['data']['result'][0]['values'])
+   graphDailyProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query', 'last_over_time(solar_prod_wh_today_metric[16h]) / 1000', startTime, endTime)
+   logger.debug('Daily prod response:' + ' ' + str(graphDailyProdResponse))
+
+   generateGraph(graphProdResponse['data']['result'][0]['values'], graphConsumeResponse['data']['result'][0]['values'], graphDailyProdResponse['data']['result'][0]['value'][1])
 
 
 if __name__ == '__main__':
