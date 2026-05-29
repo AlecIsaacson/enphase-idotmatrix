@@ -34,7 +34,7 @@ def getGraphData(queryEndpoint, metric, startTime, endTime):
    except Exception as err:
       logger.info(str(err))
 
-def generateGraph(graphProdData, graphConsumeData, graphDailyProdData, minuteDots):
+def generateGraph(graphProdData, graphConsumeData, graphDailyProdData):
     logger.debug('In generateGraph')
     X=0
     image = Image.new("RGB", (64,64), (0,0,0))
@@ -43,10 +43,7 @@ def generateGraph(graphProdData, graphConsumeData, graphDailyProdData, minuteDot
     draw.fontmode='l'
 
     # Dividing axis
-    draw.line([(0,38),(63,38)], fill=GREY, width=1)
-
-    # Minute dots to show its working
-    draw.line([(63,0),(63,int(minuteDots))], fill=GREY, width=1)
+    draw.line([(0,38),(64,38)], fill=GREY, width=1)
 
     logger.debug('Processing production data')
     for prodWatts in graphProdData:
@@ -84,22 +81,21 @@ def main():
    # We can only show 64 bars. We want 15 minute resolution, so we have room for 16 hours worth of samples (0 - 63).
    now = datetime.datetime.now(datetime.UTC)
    roundedMinute = now.minute // 15 * 15
-   minuteDots = roundedMinute / 15
    roundedTime = now.replace(minute=roundedMinute, second=0, microsecond=0)
    logger.debug(str(now.timestamp()) + ' ' + str(roundedTime.timestamp()))
    endTime = roundedTime.timestamp()
    startTime = endTime - (60 * 960) 
    logger.info('End: ' + str(endTime) + ' ' + 'Start: ' + ' ' + str(startTime))
 
-   graphProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query_range', 'solar_prod_wnow', startTime, endTime)
-   graphConsumeResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query_range', 'solar_consume_wnow', startTime, endTime)
+   graphProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query_range', 'solar_prod_w_now_metric', startTime, endTime)
+   graphConsumeResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query_range', 'solar_consume_w_now_metric', startTime, endTime)
    logger.debug('Graph prod response:' + ' ' + str(graphProdResponse)) 
    logger.debug('Graph consume response:' + ' ' + str(graphConsumeResponse))
 
-   graphDailyProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query', 'last_over_time(solar_prod_whtoday[16h]) / 1000', startTime, endTime)
+   graphDailyProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query', 'last_over_time(solar_prod_wh_today_metric[16h]) / 1000', startTime, endTime)
    logger.debug('Daily prod response:' + ' ' + str(graphDailyProdResponse))
 
-   generateGraph(graphProdResponse['data']['result'][0]['values'], graphConsumeResponse['data']['result'][0]['values'], graphDailyProdResponse['data']['result'][0]['value'][1], minuteDots)
+   generateGraph(graphProdResponse['data']['result'][0]['values'], graphConsumeResponse['data']['result'][0]['values'], graphDailyProdResponse['data']['result'][0]['value'][1])
 
 
 if __name__ == '__main__':
