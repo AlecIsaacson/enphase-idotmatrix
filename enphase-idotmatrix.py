@@ -1,4 +1,4 @@
-#!/home/alec/enphase-idotmatrix/venv/bin/python3
+#!/home/alec/GitHub/enphase-idotmatrix/venv/bin/python3
 
 import requests
 import json
@@ -10,12 +10,12 @@ import logging
 import datetime
 
 logging.Formatter.converter = time.gmtime
-logging.basicConfig(filename='/home/alec/enphase-idotmatrix/enphase-idotmatrix.log', level=logging.INFO, format='%(asctime)s.%(msecs)03dZ %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(filename='/home/alec/GitHub/enphase-idotmatrix/enphase-idotmatrix.log', level=logging.INFO, format='%(asctime)s.%(msecs)03dZ %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
 logger.info('Starting')
 
-secrets = dotenv_values('/home/alec/enphase-idotmatrix/.env')
+secrets = dotenv_values('/home/alec/GitHub/enphase-idotmatrix/.env')
 
 GREEN         = (70, 210, 70)
 YELLOW        = (240, 190, 0)
@@ -39,7 +39,7 @@ def generateGraph(graphProdData, graphConsumeData, graphDailyProdData, minuteDot
     X=0
     image = Image.new("RGB", (64,64), (0,0,0))
     draw = ImageDraw.Draw(image)
-    font = ImageFont.truetype('/home/alec/enphase-idotmatrix/fonts/MatrixChunky6.bdf', size=6)
+    font = ImageFont.truetype('/home/alec/GitHub/enphase-idotmatrix/fonts/MatrixChunky6.bdf', size=6)
     draw.fontmode='l'
 
     # Dividing axis
