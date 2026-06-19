@@ -10,7 +10,7 @@ import logging
 import datetime
 
 logging.Formatter.converter = time.gmtime
-logging.basicConfig(filename='/home/alec/GitHub/enphase-idotmatrix/enphase-idotmatrix.log', level=logging.DEBUG, format='%(asctime)s.%(msecs)03dZ %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(filename='/home/alec/GitHub/enphase-idotmatrix/enphase-idotmatrix.log', level=logging.INFO, format='%(asctime)s.%(msecs)03dZ %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
 logger.info('Starting')
@@ -91,14 +91,15 @@ def generateGraph(prodDict, consumeDict, dailyProdData, minuteDots):
 def main():
    logger.info('In main')
    # End time is now.
-   # We can only show 64 bars. We want 15 minute resolution, so we have room for 16 hours worth of samples (0 - 63).
+   # We can only show 64 bars. We want 15 minute resolution, so we have room for 15:45 hours worth of samples (0 - 63).
    now = datetime.datetime.now(datetime.UTC)
    roundedMinute = now.minute // 15 * 15
    minuteDots = roundedMinute / 15
    roundedTime = now.replace(minute=roundedMinute, second=0, microsecond=0)
    logger.debug('Now: ' + str(now.timestamp()) + ' Rounded Now: ' + str(roundedTime.timestamp()))
    endTime = roundedTime.timestamp()
-   startTime = endTime - (60 * 1000)
+   # 945 minutes = 15.75 hours = 64 fifteen minute buckets
+   startTime = endTime - (60 * 945)
    logger.info('End: ' + str(endTime) + ' ' + 'Start: ' + ' ' + str(startTime))
 
    graphProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query_range', 'solar_prod_wnow or on() vector(0)', startTime, endTime)
