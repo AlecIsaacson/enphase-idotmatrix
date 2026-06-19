@@ -46,7 +46,6 @@ def combineDicts(list1, list2):
 
 def generateGraph(prodDict, consumeDict, dailyProdData, minuteDots):
     logger.debug('In generateGraph')
-    X=0
     image = Image.new("RGB", (64,64), (0,0,0))
     draw = ImageDraw.Draw(image)
     font = ImageFont.truetype('/home/alec/GitHub/enphase-idotmatrix/fonts/MatrixChunky6.bdf', size=6)
@@ -59,9 +58,10 @@ def generateGraph(prodDict, consumeDict, dailyProdData, minuteDots):
     draw.line([(63,0),(63,int(minuteDots))], fill=GREY, width=1)
 
     logger.debug('Processing production data')
-    for prodWatts in prodDict.values():
+    X=0
+    for prodTime, prodWatts in prodDict.items():
       pixels = int(float(prodWatts)) // 240
-      logger.debug(str(int(float(prodWatts))) + ' ' + str(pixels) + ' ' + str(X))
+      logger.debug(str(prodTime) + ' ' + str(int(float(prodWatts))) + ' ' + str(pixels) + ' ' + str(X))
       if pixels > 0:
          logger.debug('Line: ' + str(X) + ',37 -> ' + str(X) + ',' + str(37 - pixels))
          draw.line([(X,37),(X,37 - (pixels - 1))], fill=GREEN, width=1)
@@ -69,16 +69,16 @@ def generateGraph(prodDict, consumeDict, dailyProdData, minuteDots):
 
     logger.debug('Processing consumption data')
     X=0
-    for consumeWatts in consumeDict.values():
+    for consumeTime, consumeWatts in consumeDict.items():
       pixels = int(float(consumeWatts)) // 240
-      logger.debug(str(int(float(consumeWatts))) + ' ' + str(pixels) + ' ' + str(X))
+      logger.debug(str(consumeTime) + ' ' + str(int(float(consumeWatts))) + ' ' + str(pixels) + ' ' + str(X))
       if pixels > 0:
          logger.debug('Line: ' + str(X) + ',39 -> ' + str(X) + ',' +str(39 + pixels))
          draw.line([(X,39),(X,39 + (pixels - 1))], fill=RED, width=1)
       X+=1
     
     currentProd = float(next(reversed(prodDict.values()))) - float(next(reversed(consumeDict.values())))
-    logger.debug(str(currentProd))
+    logger.debug("Current Prod:" + str(currentProd) + " " + next(reversed(prodDict.values())) + " " + next(reversed(consumeDict.values())))
     if currentProd < 0:
       fillColor = RED
     else:
@@ -96,18 +96,31 @@ def main():
    roundedMinute = now.minute // 15 * 15
    minuteDots = roundedMinute / 15
    roundedTime = now.replace(minute=roundedMinute, second=0, microsecond=0)
-   logger.debug(str(now.timestamp()) + ' ' + str(roundedTime.timestamp()))
+   logger.debug('Now: ' + str(now.timestamp()) + ' Rounded Now: ' + str(roundedTime.timestamp()))
    endTime = roundedTime.timestamp()
-   startTime = endTime - (60 * 960) 
+   startTime = endTime - (60 * 1000)
    logger.info('End: ' + str(endTime) + ' ' + 'Start: ' + ' ' + str(startTime))
 
    graphProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query_range', 'solar_prod_wnow or on() vector(0)', startTime, endTime)
-   prodDict = combineDicts(graphProdResponse['data']['result'][0]['values'], graphProdResponse['data']['result'][1]['values'])
+   logger.debug("Prod response: " + str(graphProdResponse))
+   
+   if len(graphProdResponse['data']['result']) == 2:
+      prodDict = combineDicts(graphProdResponse['data']['result'][0]['values'], graphProdResponse['data']['result'][1]['values'])
+   else:
+      prodDict = dict(graphProdResponse['data']['result'][0]['values'])
+   logger.debug('Prod Dict: ' + str(prodDict))
 
    graphConsumeResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query_range', 'solar_consume_wnow or on() vector(0)', startTime, endTime)
-   consumeDict = combineDicts(graphConsumeResponse['data']['result'][0]['values'], graphConsumeResponse['data']['result'][1]['values'])
+   logger.debug('Consume response: ' + str(graphConsumeResponse))
+
+   if len(graphConsumeResponse['data']['result']) == 2:
+      consumeDict = combineDicts(graphConsumeResponse['data']['result'][0]['values'], graphConsumeResponse['data']['result'][1]['values'])
+   else:
+      consumeDict = dict(graphConsumeResponse['data']['result'][0]['values'])
+   logger.debug('Consume Dict: ' + str(consumeDict))
 
    dailyProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query', 'last_over_time(solar_prod_whtoday[16h]) / 1000', startTime, endTime)
+   logger.debug('Daily prod response: ' + str(dailyProdResponse))
 
    generateGraph(prodDict, consumeDict, dailyProdResponse['data']['result'][0]['value'][1], minuteDots)
 
