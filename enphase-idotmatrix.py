@@ -60,6 +60,8 @@ def generateGraph(prodDict, consumeDict, dailyProdData, minuteDots):
     logger.debug('Processing production data')
     X=0
     for prodTime, prodWatts in prodDict.items():
+      # prodWatts has a decimal portion, so we can't just go straight from str to int.
+      # We divide by 240 watts and discard the remainder - that gets us 240 watts per pixel on the array, which lets us visualize the entire range of power output in the pixels we have to use
       pixels = int(float(prodWatts)) // 240
       logger.debug(str(prodTime) + ' ' + str(int(float(prodWatts))) + ' ' + str(pixels) + ' ' + str(X))
       if pixels > 0:
