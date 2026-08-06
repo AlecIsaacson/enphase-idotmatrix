@@ -10,7 +10,7 @@ import logging
 import datetime
 
 logging.Formatter.converter = time.gmtime
-logging.basicConfig(filename='/opt/enphase-manager/enphase-idotmatrix.log', level=logging.INFO, format='%(asctime)s.%(msecs)03dZ %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(filename='/opt/enphase-manager/enphase-idotmatrix.log', level=logging.DEBUG, format='%(asctime)s.%(msecs)03dZ %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
 logger.info('Starting')
@@ -32,7 +32,7 @@ def getGraphData(queryEndpoint, metric, startTime, endTime):
       response = requests.get(secrets['baseURL'] + queryEndpoint, headers=headers, params=params)
       return(response.json())
    except Exception as err:
-      logger.info(str(err))
+      logger.info('getGraphData Exception: ' + str(err))
 
 def combineDicts(list1, list2):
    logger.debug('In combineDicts')
