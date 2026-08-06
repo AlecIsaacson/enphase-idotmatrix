@@ -10,7 +10,7 @@ import logging
 import datetime
 
 logging.Formatter.converter = time.gmtime
-logging.basicConfig(filename='/home/alec/GitHub/enphase-idotmatrix/enphase-idotmatrix.log', level=logging.INFO, format='%(asctime)s.%(msecs)03dZ %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(filename='/opt/enphase-manager/enphase-idotmatrix.log', level=logging.INFO, format='%(asctime)s.%(msecs)03dZ %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
 logger.info('Starting')
@@ -28,7 +28,7 @@ def getGraphData(queryEndpoint, metric, startTime, endTime):
    logger.debug('In getGraphData')
    try:
       headers = {'Authorization' : 'Bearer ' + secrets['grafanaApiKey'], 'Accept' : 'application/json'}
-      params = {'query' : metric, 'start' : startTime, 'end' : endTime, 'step' : '900'} 
+      params = {'query' : metric, 'start' : startTime, 'end' : endTime, 'step' : '900'}
       response = requests.get(secrets['baseURL'] + queryEndpoint, headers=headers, params=params)
       return(response.json())
    except Exception as err:
@@ -78,7 +78,7 @@ def generateGraph(prodDict, consumeDict, dailyProdData, minuteDots):
          logger.debug('Line: ' + str(X) + ',39 -> ' + str(X) + ',' +str(39 + pixels))
          draw.line([(X,39),(X,39 + (pixels - 1))], fill=RED, width=1)
       X+=1
-    
+
     currentProd = float(next(reversed(prodDict.values()))) - float(next(reversed(consumeDict.values())))
     logger.debug("Current Prod:" + str(currentProd) + " " + next(reversed(prodDict.values())) + " " + next(reversed(consumeDict.values())))
     if currentProd < 0:
@@ -88,7 +88,7 @@ def generateGraph(prodDict, consumeDict, dailyProdData, minuteDots):
     draw.text((1,1), str(int(currentProd)), font=font, fill=fillColor)
     draw.text((32,1), str(round(float(dailyProdData), 2)), font=font, fill=GREEN, anchor='mt')
 
-    image.save('/tmp/combined.png')
+    image.save('/opt/enphase-manager/combined.png')
 
 def main():
    logger.info('In main')
@@ -106,7 +106,7 @@ def main():
 
    graphProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query_range', 'solar_prod_wnow or on() vector(0)', startTime, endTime)
    logger.debug("Prod response: " + str(graphProdResponse))
-   
+
    if len(graphProdResponse['data']['result']) == 2:
       prodDict = combineDicts(graphProdResponse['data']['result'][0]['values'], graphProdResponse['data']['result'][1]['values'])
    else:
