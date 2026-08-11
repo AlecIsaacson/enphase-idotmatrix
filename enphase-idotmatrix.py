@@ -10,7 +10,7 @@ import logging
 import datetime
 
 logging.Formatter.converter = time.gmtime
-logging.basicConfig(filename='/opt/enphase-manager/enphase-idotmatrix.log', level=logging.DEBUG, format='%(asctime)s.%(msecs)03dZ %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(filename='/opt/enphase-manager/enphase-idotmatrix.log', level=logging.INFO, format='%(asctime)s.%(msecs)03dZ %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
 logger.info('Starting')
@@ -80,25 +80,36 @@ def generateGraph(prodDict, consumeDict, dailyProdData, minuteDots):
       X+=1
 
     currentProd = float(next(reversed(prodDict.values()))) - float(next(reversed(consumeDict.values())))
-    logger.debug("Current Prod:" + str(currentProd) + " " + next(reversed(prodDict.values())) + " " + next(reversed(consumeDict.values())))
+    logger.debug('Current Prod: ' + str(currentProd) + ' ' + next(reversed(prodDict.values())) + ' ' + next(reversed(consumeDict.values())))
     if currentProd < 0:
       fillColor = RED
     else:
       fillColor = GREEN
     draw.text((1,1), str(int(currentProd)), font=font, fill=fillColor)
-    draw.text((32,1), str(round(float(dailyProdData), 2)), font=font, fill=GREEN, anchor='mt')
+
+    logger.debug('Daily prod: ' + str(dailyProdData))
+    draw.text((32,1), str(round(dailyProdData, 2)), font=font, fill=GREEN, anchor='mt')
 
     image.save('/opt/enphase-manager/combined.png')
 
 def main():
    logger.info('In main')
+   # Enphase messed up the API so that solar_prod_whtoday{}, solar_prod_whlastsevendays{}, and solar_prod_lifetime{} are now all the same.
+   # Following is code that baselines today's production by getting prod at midnight local and then subtracting it from "todays" production.
+   # morons. . . . 
+   # 
    # End time is now.
    # We can only show 64 bars. We want 15 minute resolution, so we have room for 15:45 hours worth of samples (0 - 63).
    now = datetime.datetime.now(datetime.UTC)
    roundedMinute = now.minute // 15 * 15
    minuteDots = roundedMinute / 15
    roundedTime = now.replace(minute=roundedMinute, second=0, microsecond=0)
-   logger.debug('Now: ' + str(now.timestamp()) + ' Rounded Now: ' + str(roundedTime.timestamp()))
+
+   # Get local midnight so we can baseline
+   nowLocal = now.astimezone()
+   midnightLocal = nowLocal.replace(hour=0, minute=1, second=0, microsecond=0)
+   
+   logger.debug('Now: ' + str(now.timestamp()) + ' Rounded Now: ' + str(roundedTime.timestamp()) + ' Midnight local: ' + str(midnightLocal))
    endTime = roundedTime.timestamp()
    # 945 minutes = 15.75 hours = 64 fifteen minute buckets
    startTime = endTime - (60 * 945)
@@ -122,10 +133,17 @@ def main():
       consumeDict = dict(graphConsumeResponse['data']['result'][0]['values'])
    logger.debug('Consume Dict: ' + str(consumeDict))
 
-   dailyProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query', 'last_over_time(solar_prod_whtoday[16h]) / 1000', startTime, endTime)
+   # Get the baseline from midnight so we can offset to fix Enphase's broken API
+   graphProdBaselineResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query_range', 'solar_prod_whtoday{}', midnightLocal.isoformat(), midnightLocal.isoformat())
+   logger.debug('Baseline response: ' + str(graphProdBaselineResponse))
+
+   dailyProdResponse = getGraphData('/api/datasources/proxy/uid/grafanacloud-prom/api/v1/query', 'solar_prod_whtoday{}', startTime, endTime)
    logger.debug('Daily prod response: ' + str(dailyProdResponse))
 
-   generateGraph(prodDict, consumeDict, dailyProdResponse['data']['result'][0]['value'][1], minuteDots)
+   dailyProd = (float(dailyProdResponse['data']['result'][0]['value'][1]) - float(graphProdBaselineResponse['data']['result'][0]['values'][0][1])) / 1000  
+   logger.debug('Daily Prod: ' + str(dailyProd))
+
+   generateGraph(prodDict, consumeDict, dailyProd, minuteDots)
 
 if __name__ == '__main__':
    main()
